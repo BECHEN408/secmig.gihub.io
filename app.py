@@ -45,9 +45,11 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs('reports', exist_ok=True)
+os.makedirs('task_state', exist_ok=True)
 
 MIGRATION_TASKS = {}
 MIGRATION_TASKS_LOCK = threading.Lock()
+TASK_STATE_DIR = 'task_state'
 
 
 def _task_executor_workers() -> int:
@@ -96,6 +98,28 @@ def _update_task(task_id: str, **updates):
             return
         task.update(updates)
         task["updated_at"] = datetime.now().isoformat()
+        _persist_task_state(task_id, task)
+
+
+def _task_state_path(task_id: str) -> str:
+    return os.path.join(TASK_STATE_DIR, f'{task_id}.json')
+
+
+def _persist_task_state(task_id: str, task: dict):
+    path = _task_state_path(task_id)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(task, f, indent=2, ensure_ascii=False)
+
+
+def _load_task_state(task_id: str):
+    path = _task_state_path(task_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def allowed_file(filename):
@@ -506,6 +530,7 @@ def migrate_project():
                 'error_count': 0,
                 'errors': []
             }
+            _persist_task_state(task_id, MIGRATION_TASKS[task_id])
 
         MIGRATION_TASK_EXECUTOR.submit(_run_migration_task, task_id, session_id, src_lang, tgt_lang)
 
@@ -527,9 +552,16 @@ def get_migration_task(task_id):
     """查询迁移任务状态"""
     with MIGRATION_TASKS_LOCK:
         task = MIGRATION_TASKS.get(task_id)
-        if not task:
-            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        if task:
+            return jsonify({'success': True, 'task': task})
+
+    task = _load_task_state(task_id)
+    if task:
+        with MIGRATION_TASKS_LOCK:
+            MIGRATION_TASKS[task_id] = task
         return jsonify({'success': True, 'task': task})
+
+    return jsonify({'success': False, 'error': '任务不存在'}), 404
 
 # ==================== 报告生成 ====================
 def generate_report(session_id, migration_id, src_lang, tgt_lang, scan_results):
