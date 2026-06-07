@@ -1,0 +1,30 @@
+{
+  "rules": [],
+  "cases": [
+    {
+      "id": "84f4d66c5047e2d26bca114ac29d126d",
+      "vuln_pattern": "SQL注入",
+      "vuln_type": "unknown",
+      "fix_rule": "禁止 SQL 拼接，使用预编译语句/参数化查询",
+      "context": "全局扫描",
+      "timestamp": "2026-03-25T10:34:49.194090"
+    },
+    {
+      "id": "6349d56bcb40f9189c276068f62b4cf8",
+      "vuln_pattern": "python.lang.security.audit.eval-detected.eval-detected: Detected the use of eval(). eval() can be dangerous if used to evaluate dynamic content. If this content can be input from outside the program, this may be a code injection vulnerability. Ensure evaluated content is not definable by external sources.",
+      "vuln_type": "semgrep",
+      "fix_rule": "禁止高危执行函数，使用安全替代方案",
+      "context": "全局扫描",
+      "timestamp": "2026-04-19T15:33:37.972598"
+    },
+    {
+      "id": "2e742beb360882bd428f4980db8d5543",
+      "vuln_pattern": "java.lang.security.audit.command-injection-process-builder.command-injection-process-builder: A formatted or concatenated string was detected as input to a ProcessBuilder call. This is dangerous if a variable is controlled by user input and could result in a command injection. Ensure your variables are not controlled by users or sufficiently sanitized.",
+      "vuln_type": "semgrep",
+      "fix_rule": "禁止 SQL 拼接，使用预编译语句/参数化查询",
+      "context": "迁移后文件：test_project\\main.py",
+      "timestamp": "2026-04-19T16:36:16.752194"
+    }
+  ],
+  "patterns": {}
+}
