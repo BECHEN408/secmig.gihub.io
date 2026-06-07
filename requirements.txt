@@ -4,4 +4,4 @@ Werkzeug==2.3.0
 requests==2.31.0
 python-dotenv==1.0.0
 gunicorn==22.0.0
-semgrep==1.129.0
+semgrep==1.156.0
