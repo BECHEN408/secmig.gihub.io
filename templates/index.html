@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多语言项目迁移系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body class="app-body">
+    <!-- 导航栏 -->
+    <nav class="navbar app-navbar sticky-top">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1 brand-title">
+                <span class="brand-icon"><i class="bi bi-arrow-left-right"></i></span>
+                多语言项目迁移系统
+            </span>
+            <span class="version-pill">v1.0</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid main-shell">
+        <div class="row g-4">
+            <!-- 左侧：上传和迁移面板 -->
+            <div class="col-lg-4">
+                <div class="card app-card">
+                    <div class="card-header app-card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-cloud-upload"></i> 上传项目
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- 上传方式选择 -->
+                        <ul class="nav nav-tabs mb-3" id="uploadMethodTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="local-tab" data-bs-toggle="tab" data-bs-target="#local-upload" type="button" role="tab">
+                                    <i class="bi bi-cloud-upload me-1"></i>本地上传
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="github-tab" data-bs-toggle="tab" data-bs-target="#github-import" type="button" role="tab">
+                                    <i class="bi bi-github me-1"></i>GitHub导入
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="uploadMethodContent">
+                            <!-- 本地上传 Tab -->
+                            <div class="tab-pane fade show active" id="local-upload" role="tabpanel">
+                                <!-- 拖拽区 -->
+                                <div class="upload-area" id="uploadDropZone">
+                                    <div class="upload-area-inner text-center">
+                                        <i class="bi bi-cloud-arrow-up upload-area-icon"></i>
+                                        <h6 class="mt-3 mb-2 upload-area-title">拖拽文件到此处</h6>
+                                        <p class="upload-area-hint mb-0">支持多文件或整个文件夹(保留目录结构)</p>
+                                        <p class="upload-area-ext small mb-0 mt-2">.py · .java · .cpp · .c · .js · .go · .h</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 选择按钮 -->
+                                <div class="d-grid gap-2 mt-3 upload-picker-row">
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" class="btn btn-tech btn-tech-outline flex-fill" id="pickFilesBtn" title="选择一个或多个代码文件">
+                                            <i class="bi bi-file-earmark-code"></i> 选择文件
+                                        </button>
+                                        <button type="button" class="btn btn-tech flex-fill" id="pickFolderBtn" title="选择整个项目文件夹">
+                                            <i class="bi bi-folder2-open"></i> 选择文件夹
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="fileInput" multiple webkitdirectory mozdirectory hidden>
+                                <input type="file" id="singleFileInput" multiple hidden>
+                            </div>
+
+                            <!-- GitHub 导入 Tab -->
+                            <div class="tab-pane fade" id="github-import" role="tabpanel">
+                                <div class="github-import-container">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold label-tech">
+                                            <i class="bi bi-github me-1"></i>GitHub 仓库 URL
+                                        </label>
+                                        <input type="text" class="form-control form-tech" id="githubUrlInput" 
+                                               placeholder="https://github.com/username/repository">
+                                        <div class="form-text text-muted">
+                                            支持 HTTPS、SSH 简写，以及带分支的网页链接（如 …/tree/main/src）。私有仓库请使用本地上传。
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold label-tech">分支 (可选)</label>
+                                        <input type="text" class="form-control form-tech" id="githubBranchInput" 
+                                               placeholder="main (默认)">
+                                    </div>
+
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-tech" id="validateGithubBtn">
+                                            <i class="bi bi-check-circle me-2"></i>验证并导入
+                                        </button>
+                                    </div>
+
+                                    <!-- GitHub 导入状态 -->
+                                    <div id="githubStatus" class="mt-3" style="display: none;">
+                                        <div class="alert" id="githubStatusAlert">
+                                            <div id="githubStatusContent"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- GitHub 加载动画 -->
+                                    <div id="githubLoading" class="mt-3 text-center" style="display: none;">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">正在从 GitHub 下载并解压...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 已选择文件列表 -->
+                        <div id="filesList" class="mt-3" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold label-tech">已选择文件</label>
+                                <ul class="list-group" id="filesListItems"></ul>
+                            </div>
+                        </div>
+
+                        <!-- 项目分析结果 -->
+                        <div id="projectInfo" class="mt-3" style="display: none;">
+                            <div class="alert app-alert-info">
+                                <small>
+                                    <div><strong>文件数:</strong> <span id="fileCount">0</span></div>
+                                    <div><strong>检测语言:</strong> <span id="detectedLangs">-</span></div>
+                                    <div><strong>总大小:</strong> <span id="totalSize">0 KB</span></div>
+                                </small>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" style="border-color: var(--border-light); opacity: 0.6;">
+
+                        <!-- 迁移配置 -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold label-tech">源语言</label>
+                            <select class="form-select form-tech" id="srcLang">
+                                <option value="">-- 自动检测 --</option>
+                                <option value="python">Python</option>
+                                <option value="java">Java</option>
+                                <option value="cpp">C++</option>
+                                <option value="c">C</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="go">Go</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold label-tech">目标语言</label>
+                            <select class="form-select form-tech" id="tgtLang">
+                                <option value="">-- 选择目标语言 --</option>
+                                <option value="python">Python</option>
+                                <option value="java">Java</option>
+                                <option value="cpp">C++</option>
+                                <option value="c">C</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="go">Go</option>
+                            </select>
+                        </div>
+
+                        <!-- 按钮组 -->
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-tech" id="uploadBtn" disabled>
+                                <i class="bi bi-cloud-upload me-2"></i>上传文件
+                            </button>
+                            <button class="btn btn-tech btn-tech-success" id="migrateBtn" disabled>
+                                <i class="bi bi-play-circle me-2"></i>开始迁移
+                            </button>
+                        </div>
+
+                        <!-- 进度条 -->
+                        <div id="progressContainer" class="mt-4" style="display: none;">
+                            <div class="progress progress-tech" id="progressTrack">
+                                <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="text-center mt-3">
+                                <span id="progressText" class="progress-badge">准备中...</span>
+                            </div>
+                        </div>
+
+                        <!-- 操作日志 -->
+                        <div id="logContainer" class="mt-4" style="display: none;">
+                            <label class="form-label fw-bold label-tech">操作日志</label>
+                            <div id="logBox" class="log-box-tech p-3 rounded" style="height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：结果和报告面板 -->
+            <div class="col-lg-8">
+                <!-- 迁移结果概览 -->
+                <div class="card app-card mb-4" id="resultCard" style="display: none;">
+                    <div class="card-header app-card-header app-card-header-success">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle"></i> 迁移完成
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), transparent);">
+                                    <h4 class="text-success mb-2" id="migratedCount">0</h4>
+                                    <small class="text-muted">文件迁移成功</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), transparent);">
+                                    <h4 class="text-danger mb-2" id="errorCount">0</h4>
+                                    <small class="text-muted">迁移失败</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 rounded" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), transparent);">
+                                    <h4 class="text-info mb-2" id="overallVpi">0.000</h4>
+                                    <small class="text-muted">整体 VPI</small>
+                                </div>
+                            </div>
+                        </div>
+                        <hr class="my-4" style="border-color: var(--border-light); opacity: 0.6;">
+                        <div class="row g-3 align-items-stretch">
+                            <div class="col-md-5">
+                                <button class="btn btn-tech btn-sm w-100 py-2" id="downloadBtn">
+                                    <i class="bi bi-download me-2"></i>下载项目文件
+                                </button>
+                            </div>
+                            <div class="col-md-7">
+                                <button class="btn btn-tech btn-tech-outline btn-sm w-100 py-2" id="downloadReportBtn" type="button">
+                                    <i class="bi bi-file-earmark-arrow-down me-2"></i>下载报告
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 选项卡：报告 -->
+                <ul class="nav nav-tabs app-nav-tabs" id="reportTabs" role="tablist" style="display: none;">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" 
+                                data-bs-target="#overview" type="button">概览</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="vulnerabilities-tab" data-bs-toggle="tab" 
+                                data-bs-target="#vulnerabilities" type="button">漏洞分析</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="details-tab" data-bs-toggle="tab" 
+                                data-bs-target="#details" type="button">详细数据</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="reportContent">
+                    <!-- 概览标签 -->
+                    <div class="tab-pane fade show active" id="overview">
+                        <div class="card border-0 bg-transparent">
+                            <div class="card-body p-0">
+                                <!-- 统计卡片 -->
+                                <div class="row g-4 mb-4">
+                                    <div class="col-md-6">
+                                        <div class="card stat-card-tech border-0">
+                                            <div class="card-body">
+                                                <h6 class="text-danger mb-3">迁移前漏洞</h6>
+                                                <h3 id="vulnsBefore">0</h3>
+                                                <div id="severityBeforeChart" style="height: 200px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card stat-card-tech border-0">
+                                            <div class="card-body">
+                                                <h6 class="text-success mb-3">迁移后漏洞</h6>
+                                                <h3 id="vulnsAfter">0</h3>
+                                                <div id="severityAfterChart" style="height: 200px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 修复率 -->
+                                <div class="card stat-card-tech border-0 mb-4">
+                                    <div class="card-body">
+                                        <h6 class="mb-3">漏洞修复率</h6>
+                                        <div class="progress" style="height: 32px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                                            <div class="progress-bar bg-success" id="fixRateBar" 
+                                                 role="progressbar" style="width: 0%; background: linear-gradient(90deg, #10b981, #059669) !important; border-radius: var(--radius-md);">
+                                                <span id="fixRateText" style="font-weight: 700;">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 漏洞类型对比 -->
+                                <div class="card stat-card-tech border-0 mb-4">
+                                    <div class="card-body">
+                                        <h6 class="mb-3">漏洞类型分布</h6>
+                                        <div id="vulnTypesChart" style="height: 250px;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 🔥 新增: 整体安全评分仪表盘 -->
+                                <div class="row g-4 mb-4">
+                                    <div class="col-md-6">
+                                        <div class="card stat-card-tech border-0">
+                                            <div class="card-body text-center">
+                                                <h6 class="mb-3">整体安全评分</h6>
+                                                <div id="safetyGaugeChart" style="height: 250px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card stat-card-tech border-0">
+                                            <div class="card-body text-center">
+                                                <h6 class="mb-3">多维度安全评估</h6>
+                                                <div id="radarChart" style="height: 250px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 🔥 新增: 各文件VPI对比 -->
+                                <div class="card stat-card-tech border-0">
+                                    <div class="card-body">
+                                        <h6 class="mb-3">各文件VPI对比</h6>
+                                        <div id="fileVpiChart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 漏洞分析标签 -->
+                    <div class="tab-pane fade" id="vulnerabilities">
+                        <div class="card border-0 bg-transparent">
+                            <div class="card-body p-0">
+                                <ul class="nav nav-pills app-nav-pills mb-4" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link active" id="before-vulns-btn" 
+                                                data-show="beforeVulns" type="button">迁移前</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" id="after-vulns-btn" 
+                                                data-show="afterVulns" type="button">迁移后</button>
+                                    </li>
+                                </ul>
+                                <div id="beforeVulns" class="vulnerabilities-list"></div>
+                                <div id="afterVulns" class="vulnerabilities-list" style="display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 详细数据标签 -->
+                    <div class="tab-pane fade" id="details">
+                        <div class="card border-0 bg-transparent">
+                            <div class="card-body p-0">
+                                <h6 class="mb-3 fw-bold">文件迁移详情</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-hover app-table">
+                                        <thead>
+                                            <tr>
+                                                <th>文件名</th>
+                                                <th>迁移前</th>
+                                                <th>迁移后</th>
+                                                <th>VPI</th>
+                                                <th>状态</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="filesDetailsTable">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 初始欢迎屏幕 -->
+                <div class="card app-card welcome-card-tech" id="welcomeCard">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-rocket-takeoff welcome-rocket"></i>
+                        <h4 class="mt-4 mb-2">欢迎使用多语言项目迁移系统</h4>
+                        <p class="text-muted mt-2 mb-4">
+                            支持 Java ↔ Python、C ↔ C++、JavaScript ↔ Python 等多种语言迁移<br>
+                            <small>自动漏洞扫描、修复和可视化报告生成</small>
+                        </p>
+                        <div class="mt-4">
+                            <p class="mb-3"><strong style="color: var(--text-primary);">核心特性</strong></p>
+                            <div class="row g-3 justify-content-center">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        <span>智能代码翻译</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        <span>自动漏洞扫描 (Semgrep)</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        <span>VPI 安全指标计算</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        <span>可视化报告生成</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="app-footer">
+        <div class="container-fluid text-center small footer-copy">
+            <p class="mb-0">多语言项目迁移系统 v1.0 | © 2026 网络技术挑战赛 | <a href="#">帮助文档</a></p>
+        </div>
+    </footer>
+
+    <!-- 加载脚本 -->
+    <div class="modal fade" id="reportDownloadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content report-modal">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title">下载报告</h5>
+                        <p class="mb-0 text-muted small">选择一种报告格式导出</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="report-format-list">
+                        <button class="report-format-option" type="button" data-format="pdf">
+                            <span class="report-format-badge report-format-badge-pdf">PDF</span>
+                            <span class="report-format-copy">
+                                <strong>演示汇报版</strong>
+                                <small>版式完整，适合直接查看、汇报和归档</small>
+                            </span>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <button class="report-format-option" type="button" data-format="md">
+                            <span class="report-format-badge report-format-badge-md">MD</span>
+                            <span class="report-format-copy">
+                                <strong>可编辑文本版</strong>
+                                <small>适合继续整理说明或放入文档系统</small>
+                            </span>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <button class="report-format-option" type="button" data-format="json">
+                            <span class="report-format-badge report-format-badge-json">JSON</span>
+                            <span class="report-format-copy">
+                                <strong>结构化数据版</strong>
+                                <small>适合系统对接、自动分析和二次处理</small>
+                            </span>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- 🔥 新增: ECharts 用于高级可视化 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
