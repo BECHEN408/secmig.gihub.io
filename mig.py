@@ -18,8 +18,8 @@ load_dotenv()
 # ==================== 核心配置 ====================
 # 🔥 从环境变量读取 API Key（安全方式）
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
-QWEN_MODEL_NAME = "qwen3-coder-plus"  # 或 qwen2.5-coder-7b-instruct
-DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # 通义千问兼容模式地址
+QWEN_MODEL_NAME = "qwen3.7-plus"  # 或 qwen2.5-coder-7b-instruct
+DASHSCOPE_BASE_URL = "https://ws-58adetjua8vv5our.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"  # 通义千问兼容模式地址
 
 # 方案 2: 保留 DeepSeek (备选)
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
